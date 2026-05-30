@@ -1,0 +1,127 @@
+---
+
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - images/**
+      - .github/workflows/build.yaml
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image name to build (e.g. ashqurl). Leave blank to build all."
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.detect.outputs.images }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect images to build
+        id: detect
+        run: |
+          set -euo pipefail
+
+          all_images() {
+            find images -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort | jq -R . | jq -sc .
+          }
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ -n "${{ inputs.image }}" ]]; then
+              echo 'images=["${{ inputs.image }}"]' >> "$GITHUB_OUTPUT"
+            else
+              echo "images=$(all_images)" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+
+          # First push to branch has no before-SHA — build everything
+          if [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+            echo "images=$(all_images)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Workflow file itself changed — rebuild everything
+          if git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" \
+              | grep -q '^\.github/workflows/build\.yaml$'; then
+            echo "images=$(all_images)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Otherwise rebuild only the image directories that changed
+          changed=$(
+            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" \
+              | grep '^images/' \
+              | cut -d/ -f2 \
+              | sort -u \
+              | jq -R . | jq -sc .
+          )
+          echo "images=${changed:-[]}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.images != '[]' && needs.detect.outputs.images != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.detect.outputs.images) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.actor }}/${{ matrix.image }}
+          flavor: |
+            latest=true
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: images/${{ matrix.image }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ github.actor }}/${{ matrix.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

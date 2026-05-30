@@ -1,0 +1,28 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "description": "Group all GitHub Actions minor/patch/digest updates into one PR",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "GitHub Actions updates",
+      "groupSlug": "github-actions"
+    },
+    {
+      "description": "Group all Docker base image minor/patch/digest updates into one PR",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "Docker base image updates",
+      "groupSlug": "docker-base-images",
+      "automerge": true
+    },
+    {
+      "description": "Keep major updates separate (one PR each)",
+      "matchUpdateTypes": ["major"],
+      "groupName": "major updates",
+      "groupSlug": "major",
+      "automerge": false
+    }
+  ]
+}
