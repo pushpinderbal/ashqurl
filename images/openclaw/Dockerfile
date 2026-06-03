@@ -1,4 +1,4 @@
-FROM ghcr.io/openclaw/openclaw:2026.5.28-slim
+FROM ghcr.io/openclaw/openclaw:2026.6.1-slim
 
 USER root
 
