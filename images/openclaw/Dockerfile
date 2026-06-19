@@ -2,7 +2,7 @@ FROM ghcr.io/openclaw/openclaw:2026.6.8-slim
 
 USER root
 
-COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.22 /uv /uvx /usr/local/bin/
 RUN apt-get update && apt-get install -y --no-install-recommends openssh-client && rm -rf /var/lib/apt/lists/*
 
 USER 1000
