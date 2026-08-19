@@ -1,5 +1,5 @@
-FROM amazon/aws-cli:latest@sha256:cd11f6e909d42f066a03e15f072853fcc19f033e343cb83b2d553e2082cbb5a7 AS aws
-FROM bitnami/kubectl:latest@sha256:30aa809595d2116189165449ee39d3d9d490237631e7b0e882146fb27964de95 AS kube
+FROM amazon/aws-cli:latest@sha256:d5b61bcb558149739b6d17410bdff21ec66518f3c921f0b8fc8ffa725f3f1b00 AS aws
+FROM bitnami/kubectl:latest@sha256:190ebe23a27084c9477b48cf9503472608197792456857ac8fdcf2eb877aa34e AS kube
 
 FROM aws
 COPY --from=kube /opt/bitnami/kubectl/bin/kubectl /usr/local/bin/kubectl
